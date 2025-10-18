@@ -1,0 +1,277 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { CheckCircle, XCircle, Download } from 'lucide-react';
+
+const SignatureForm = () => {
+  const [formData, setFormData] = useState({
+    email: '',
+    courseId: '',
+    courseName: '',
+    understood: false
+  });
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [signatureData, setSignatureData] = useState(null);
+  const [submitted, setSubmitted] = useState(false);
+  const canvasRef = useRef(null);
+  const contextRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    canvas.width = canvas.offsetWidth * 2;
+    canvas.height = canvas.offsetHeight * 2;
+    canvas.style.width = `${canvas.offsetWidth}px`;
+    canvas.style.height = `${canvas.offsetHeight}px`;
+
+    const context = canvas.getContext('2d');
+    context.scale(2, 2);
+    context.lineCap = 'round';
+    context.strokeStyle = '#1e40af';
+    context.lineWidth = 2;
+    contextRef.current = context;
+  }, []);
+
+  const startDrawing = ({ nativeEvent }) => {
+    const { offsetX, offsetY } = nativeEvent;
+    contextRef.current.beginPath();
+    contextRef.current.moveTo(offsetX, offsetY);
+    setIsDrawing(true);
+  };
+
+  const draw = ({ nativeEvent }) => {
+    if (!isDrawing) return;
+    const { offsetX, offsetY } = nativeEvent;
+    contextRef.current.lineTo(offsetX, offsetY);
+    contextRef.current.stroke();
+  };
+
+  const stopDrawing = () => {
+    contextRef.current.closePath();
+    setIsDrawing(false);
+    setSignatureData(canvasRef.current.toDataURL());
+  };
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    contextRef.current.clearRect(0, 0, canvas.width, canvas.height);
+    setSignatureData(null);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.understood) {
+      alert('Bitte bestätigen Sie, dass Sie die Inhalte verstanden haben.');
+      return;
+    }
+    
+    if (!signatureData) {
+      alert('Bitte unterschreiben Sie das Formular.');
+      return;
+    }
+
+    const submissionData = {
+      ...formData,
+      signature: signatureData,
+      timestamp: new Date().toISOString(),
+      ipAddress: 'Wird vom Server erfasst'
+    };
+
+    console.log('Schulungsbestätigung:', submissionData);
+    
+    // Hier würde der n8n Webhook aufgerufen werden:
+    // await fetch('https://your-n8n-instance.com/webhook/schulungsbestaetigung', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(submissionData)
+    // });
+
+    setSubmitted(true);
+  };
+
+  const downloadCertificate = () => {
+    const data = {
+      email: formData.email,
+      courseName: formData.courseName,
+      date: new Date().toLocaleDateString('de-DE'),
+      signature: signatureData
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `schulungsbestaetigung-${formData.email}-${Date.now()}.json`;
+    a.click();
+  };
+
+  if (submitted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
+          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            Schulung erfolgreich bestätigt!
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Ihre Bestätigung wurde gespeichert und an Memberspot übermittelt.
+          </p>
+          <div className="bg-gray-50 rounded p-4 mb-6 text-left">
+            <p className="text-sm text-gray-700"><strong>E-Mail:</strong> {formData.email}</p>
+            <p className="text-sm text-gray-700"><strong>Schulung:</strong> {formData.courseName}</p>
+            <p className="text-sm text-gray-700"><strong>Datum:</strong> {new Date().toLocaleDateString('de-DE')}</p>
+          </div>
+          <button
+            onClick={downloadCertificate}
+            className="flex items-center justify-center gap-2 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors mb-3"
+          >
+            <Download className="w-4 h-4" />
+            Bestätigung herunterladen
+          </button>
+          <button
+            onClick={() => {
+              setSubmitted(false);
+              setFormData({ email: '', courseId: '', courseName: '', understood: false });
+              clearSignature();
+            }}
+            className="w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+          >
+            Neue Bestätigung
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-xl p-8 max-w-2xl w-full">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">Schulungsbestätigung</h1>
+        <p className="text-gray-600 mb-6">
+          Bitte bestätigen Sie den Abschluss Ihrer Schulung mit Ihrer digitalen Unterschrift.
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              E-Mail-Adresse *
+            </label>
+            <input
+              type="email"
+              required
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="ihre.email@firma.de"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Kurs-ID *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.courseId}
+              onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="course_12345"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Schulungsname *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.courseName}
+              onChange={(e) => setFormData({ ...formData, courseName: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Datenschutz Grundschulung 2025"
+            />
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-800 mb-2">Bestätigung</h3>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.understood}
+                onChange={(e) => setFormData({ ...formData, understood: e.target.checked })}
+                className="mt-1 w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700">
+                Ich bestätige hiermit, dass ich die Schulungsinhalte vollständig durchgearbeitet, 
+                verstanden habe und die darin enthaltenen Richtlinien einhalte. Ich bin mir bewusst, 
+                dass diese Bestätigung rechtlich bindend ist.
+              </span>
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Digitale Unterschrift *
+            </label>
+            <div className="border-2 border-gray-300 rounded-lg overflow-hidden">
+              <canvas
+                ref={canvasRef}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={(e) => {
+                  const touch = e.touches[0];
+                  const mouseEvent = new MouseEvent('mousedown', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                  });
+                  canvasRef.current.dispatchEvent(mouseEvent);
+                }}
+                onTouchMove={(e) => {
+                  const touch = e.touches[0];
+                  const mouseEvent = new MouseEvent('mousemove', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                  });
+                  canvasRef.current.dispatchEvent(mouseEvent);
+                }}
+                onTouchEnd={() => {
+                  const mouseEvent = new MouseEvent('mouseup', {});
+                  canvasRef.current.dispatchEvent(mouseEvent);
+                }}
+                className="w-full h-40 bg-white cursor-crosshair touch-none"
+                style={{ touchAction: 'none' }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={clearSignature}
+              className="mt-2 text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
+            >
+              <XCircle className="w-4 h-4" />
+              Unterschrift löschen
+            </button>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors shadow-lg"
+          >
+            Schulung bestätigen und absenden
+          </button>
+        </form>
+
+        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+          <p className="text-xs text-gray-600">
+            <strong>Hinweis:</strong> Diese Bestätigung wird DSGVO-konform gespeichert und 
+            an Ihr Memberspot-Profil übermittelt. Die Daten werden verschlüsselt übertragen 
+            und können jederzeit gemäß Art. 17 DSGVO gelöscht werden.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SignatureForm;

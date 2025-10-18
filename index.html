@@ -157,12 +157,12 @@
 
           console.log("Schulungsbestätigung:", submissionData);
 
-          // n8n Webhook hier einfügen:
-          // await fetch('https://your-n8n-instance.com/webhook/schulungsbestaetigung', {
-          //   method: 'POST',
-          //   headers: { 'Content-Type': 'application/json' },
-          //   body: JSON.stringify(submissionData)
-          // });
+          // n8n Webhook (TEST)
+          await fetch('https://localdevai.app.n8n.cloud/webhook-test/schulungsbestaetigung', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(submissionData)
+        });
 
           setSubmitted(true);
         };
@@ -352,3 +352,4 @@
     </script>
   </body>
 </html>
+
